@@ -5,6 +5,10 @@ colorFrom: blue
 colorTo: green
 sdk: docker
 app_port: 8000
+tags:
+  - openenv
+  - reinforcement-learning
+  - docker
 ---
 
 # Stock Investment Agent Environment
