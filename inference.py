@@ -85,7 +85,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
     error_val = error if error else "null"
     done_val = str(done).lower()
     print(
-        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
+        f"[STEP] step={step} action={action} reward={reward:.4f} done={done_val} error={error_val}",
         flush=True,
     )
 
@@ -93,7 +93,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} score={score:.4f} rewards={rewards_str}",
         flush=True,
     )
 
@@ -478,9 +478,9 @@ def run_task(task_name: str) -> dict:
         final_state = env_state()
         score = final_state.get("cumulative_reward", sum(rewards))
         if score <= 0.0:
-            score = 0.01
+            score = 0.001
         elif score >= 1.0:
-            score = 0.99
+            score = 0.999
         success = score > 0.1
 
     except Exception:

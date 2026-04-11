@@ -115,13 +115,17 @@ class StockInvestmentEnvironment:
 
         if self._done:
             if self._cumulative_reward <= 0.0:
+                delta = 0.001 - self._cumulative_reward
                 self._cumulative_reward = 0.001
+                reward += delta
             elif self._cumulative_reward >= 1.0:
+                delta = self._cumulative_reward - 0.999
                 self._cumulative_reward = 0.999
+                reward -= delta
 
         return {
             "observation": self._make_observation(),
-            "reward": reward,
+            "reward": round(reward, 6),
             "done": self._done,
             "info": {
                 "step": self._step_count,
