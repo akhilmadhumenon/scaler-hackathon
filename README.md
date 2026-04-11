@@ -53,8 +53,8 @@ Each episode is **one instrument per step** until all rows are decided or `max_s
 |------|------------|------|-----------|-------------------|
 | `nifty_screen` | Easy | 5 | Reliance, TCS, HDFC Bank, ITC, Sun Pharma | `instrument_id`, `decision` ∈ `overweight` · `neutral` · `underweight` |
 | `sector_rotation` | Medium | 10 | SBI, ICICI Bank, Tata Steel, Airtel, ONGC, HUL, Tata Motors, L&T, Dr. Reddy's, Infosys | Above + `risk_tier` ∈ `defensive` · `balanced` · `aggressive` + **thesis** on **`sr3`** (Tata Steel) |
-| `portfolio_risk` | Hard | 15 | Bajaj Finance, Maruti, Adani Ent, Zomato, Paytm, Titan, HAL, Vodafone Idea, + more | Above + **theses** on **`pr4`** (Adani), **`pr9`** (Paytm), **`pr12`** (Vodafone Idea) |
-| `rbi_stress` | Expert | 12 | Bandhan Bank, Britannia, PNB, IOC, PFC, HCL Tech, Cipla, Polycab, Embassy REIT, + more | Above + `hedge_recommended` **boolean** + **thesis** on **`rs7`** (PFC) |
+| `portfolio_risk` | Hard | 15 | Nifty ETF, Bajaj Finance, Maruti, Adani Ent, Wipro, Coal India, Zomato, Titan, Paytm, Asian Paints, HAL, Vodafone Idea, Nestle, IREDA, DMart | Above + **theses** on **`pr4`** (Adani), **`pr9`** (Paytm), **`pr12`** (Vodafone Idea) |
+| `rbi_stress` | Expert | 12 | Liquid ETF, Bandhan Bank, Britannia, PNB, Tata Elxsi, IOC, PFC, HCL Tech, Cipla, Polycab, Embassy REIT, Jio Financial | Above + `hedge_recommended` **boolean** + **thesis** on **`rs7`** (PFC) |
 
 ## Reward structure
 

@@ -116,7 +116,7 @@ TASK_NIFTY_SCREEN: dict[str, Any] = {
     "hedge_reward": 0.0,
     "thesis_required_for": [],
     "ordering_bonus": 0.0,
-    "priority_ids": ["n1", "n4"],
+    "priority_ids": [],
 }
 
 
@@ -312,8 +312,8 @@ TASK_SECTOR_ROTATION: dict[str, Any] = {
 # ─── Task 3: Portfolio Risk (Hard) ───────────────────────────────────────────
 # 15 instruments; decision + risk tier + theses for three critical names.
 
-_DECISION_EACH = round(0.15 / 15, 6)
-_RISK_EACH = round(0.25 / 15, 6)
+_DECISION_EACH = 0.01
+_RISK_EACH = 0.01
 _THESIS_EACH = 0.15
 
 TASK_PORTFOLIO_RISK: dict[str, Any] = {
@@ -536,7 +536,7 @@ TASK_PORTFOLIO_RISK: dict[str, Any] = {
             "required_matches": 2,
         },
     },
-    "ordering_bonus": 0.15,
+    "ordering_bonus": 0.25,
     "priority_ids": ["pr4", "pr9", "pr12", "pr7", "pr14"],
 }
 
@@ -707,9 +707,9 @@ TASK_RBI_STRESS: dict[str, Any] = {
         "rs11": {"decision": "underweight", "risk_tier": "defensive", "hedge_recommended": True},
         "rs12": {"decision": "neutral", "risk_tier": "aggressive", "hedge_recommended": True},
     },
-    "decision_reward": round(0.15 / 12, 6),
-    "risk_tier_reward": round(0.25 / 12, 6),
-    "hedge_reward": round(0.30 / 12, 6),
+    "decision_reward": 0.01,
+    "risk_tier_reward": 0.02,
+    "hedge_reward": 0.025,
     "thesis_reward": 0.15,
     "thesis_required_for": ["rs7"],
     "thesis_keywords": {
@@ -722,7 +722,7 @@ TASK_RBI_STRESS: dict[str, Any] = {
             "required_matches": 3,
         },
     },
-    "ordering_bonus": 0.15,
+    "ordering_bonus": 0.19,
     "priority_ids": ["rs7", "rs2", "rs11", "rs4", "rs6"],
 }
 

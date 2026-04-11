@@ -70,10 +70,9 @@ def _detect_keyword_stuffing(text: str, keywords: list[str]) -> bool:
 
     Heuristics:
     - Fewer than 3 words → trivially stuffed
-    - Short text (< 15 words) with 5+ keyword hits → suspicious
-    - Keyword-to-word ratio > 0.6 → suspicious
-    - Any single word repeated 4+ times → suspicious
-    - All-caps or no vowels in majority of words → suspicious
+    - Short text (< 10 words) with 5+ keyword hits → suspicious
+    - Keyword-to-word ratio > 0.75 → suspicious
+    - Any single non-stop word repeated N+ times (N scales with length) → suspicious
     """
     if not text:
         return False
