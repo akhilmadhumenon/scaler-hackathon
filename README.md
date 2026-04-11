@@ -104,9 +104,9 @@ Mandatory variables for the **OpenAI-compatible** client:
 | `ENV_URL` | Running environment base URL (default `http://localhost:8000`). |
 
 ```bash
-export API_BASE_URL="https://api.groq.com/openai/v1"
-export MODEL_NAME="llama-3.3-70b-versatile"
-export HF_TOKEN="your-key"
+export API_BASE_URL="<your-openai-compatible-endpoint>"
+export MODEL_NAME="<model-id>"
+export HF_TOKEN="<your-api-key>"
 export ENV_URL="http://localhost:8000"
 python inference.py
 ```
