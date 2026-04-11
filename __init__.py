@@ -1,11 +1,11 @@
 """
 Stock Investment Agent Environment – An OpenEnv-compatible RL environment.
 
-Simulates real-world portfolio research with four difficulty levels:
-  basic_screen     (easy)    – benchmark-relative stance only
-  sector_rotation  (medium)  – stance + risk tier + cycle thesis
-  risk_budget      (hard)    – stance + risk tier + multi-thesis book
-  macro_stress     (expert)  – stance + risk tier + hedge flag + liquidity thesis
+Indian stock market portfolio research with four difficulty levels:
+  nifty_screen     (easy)    – Nifty 50 large-caps, benchmark-relative stance
+  sector_rotation  (medium)  – cross-sector rotation + risk tier + metals thesis
+  portfolio_risk   (hard)    – multi-cap portfolio + risk tier + event-driven theses
+  rbi_stress       (expert)  – macro stress + hedge flag + green-energy NBFC thesis
 """
 
 from .client import StockInvestmentEnv

@@ -11,19 +11,30 @@ tags:
   - docker
 ---
 
-# Stock Investment Agent Environment
+# Stock Investment Agent — Indian Market RL Environment
 
-**OpenEnv**-compatible environment for agents that perform **buy-side style portfolio research**: benchmark-relative stances, per-name risk budgets, written theses on critical situations, and **hedge/no-hedge** calls under macro and liquidity stress. Submitted for the **Scaler School of Technology × Meta / PyTorch OpenEnv Hackathon**.
+**OpenEnv**-compatible environment for agents that perform **buy-side style portfolio research** on **real NSE/BSE-listed Indian companies**: benchmark-relative stances, per-name risk budgets, written theses on critical situations, and **hedge/no-hedge** calls under macro and liquidity stress. Submitted for the **Scaler School of Technology × Meta / PyTorch OpenEnv Hackathon**.
 
 ## Why this environment
 
-Human portfolio workflows combine **classification** (how much conviction?), **risk framing** (defensive vs aggressive sleeve), **narrative justification** (thesis quality), and **tail-risk mechanics** (when an overlay is warranted). This repo encodes those dimensions across **four graded tasks** with **deterministic programmatic graders**, dense **step-level reward signal**, and a **reproducible LLM baseline** (`inference.py`).
+Human portfolio workflows combine **classification** (how much conviction?), **risk framing** (defensive vs aggressive sleeve), **narrative justification** (thesis quality), and **tail-risk mechanics** (when an overlay is warranted). This repo encodes those dimensions across **four graded tasks** using **real Indian market scenarios** with **deterministic programmatic graders**, dense **step-level reward signal**, and a **reproducible LLM baseline** (`inference.py`).
 
 Unlike toy benchmarks, this environment tests the agent's ability to:
 - **Triage and prioritise** — ordering bonus rewards addressing high-impact / tail-risk names early
 - **Classify under ambiguity** — near-miss partial credit distinguishes "close but wrong" from "opposite direction"
 - **Reason in writing** — keyword-matched thesis scoring with anti-stuffing checks and coherence bonuses
 - **Make hedge calls** — binary hedge flag on the expert task tests tail-risk judgement
+
+## Indian Market Focus
+
+All scenarios use **real NSE/BSE-listed companies** — Reliance Industries, TCS, HDFC Bank, Tata Steel, Adani Enterprises, Bharti Airtel, Paytm, and more — with realistic market narratives drawn from actual Indian market dynamics. Designed for practical portfolio research training relevant to **making money in the Indian stock market**.
+
+## Interactive UI
+
+The environment includes a **Gradio-based interactive UI** accessible at the root URL of the Space:
+- **AI Agent Demo** — Run an LLM agent against any task with your own API keys and watch step-by-step decisions
+- **Play Yourself** — Manually decide each instrument and get instant grading feedback
+- **About** — Task descriptions, reward mechanics, and usage guide
 
 ## OpenEnv compliance
 
@@ -38,12 +49,12 @@ Unlike toy benchmarks, this environment tests the agent's ability to:
 
 Each episode is **one instrument per step** until all rows are decided or `max_steps` is reached.
 
-| Task | Difficulty | Rows | Agent must output |
-|------|------------|------|-------------------|
-| `basic_screen` | Easy | 5 | `instrument_id`, `decision` ∈ `overweight` · `neutral` · `underweight` |
-| `sector_rotation` | Medium | 10 | Above + `risk_tier` ∈ `defensive` · `balanced` · `aggressive` + **thesis** on **`sr3`** |
-| `risk_budget` | Hard | 15 | Above + **theses** on **`rb4`**, **`rb9`**, **`rb12`** |
-| `macro_stress` | Expert | 12 | Above + `hedge_recommended` **boolean** + **thesis** on **`ms7`** |
+| Task | Difficulty | Rows | Companies | Agent must output |
+|------|------------|------|-----------|-------------------|
+| `nifty_screen` | Easy | 5 | Reliance, TCS, HDFC Bank, ITC, Sun Pharma | `instrument_id`, `decision` ∈ `overweight` · `neutral` · `underweight` |
+| `sector_rotation` | Medium | 10 | SBI, ICICI Bank, Tata Steel, Airtel, ONGC, HUL, Tata Motors, L&T, Dr. Reddy's, Infosys | Above + `risk_tier` ∈ `defensive` · `balanced` · `aggressive` + **thesis** on **`sr3`** (Tata Steel) |
+| `portfolio_risk` | Hard | 15 | Bajaj Finance, Maruti, Adani Ent, Zomato, Paytm, Titan, HAL, Vodafone Idea, + more | Above + **theses** on **`pr4`** (Adani), **`pr9`** (Paytm), **`pr12`** (Vodafone Idea) |
+| `rbi_stress` | Expert | 12 | Bandhan Bank, Britannia, PNB, IOC, PFC, HCL Tech, Cipla, Polycab, Embassy REIT, + more | Above + `hedge_recommended` **boolean** + **thesis** on **`rs7`** (PFC) |
 
 ## Reward structure
 
@@ -127,10 +138,10 @@ python inference.py
 
 | Task | Model | API host | Score |
 |------|-------|----------|-------|
-| `basic_screen` | llama-3.1-8b-instant | Groq OpenAI-compat | **1.00** |
-| `sector_rotation` | llama-3.1-8b-instant | Groq OpenAI-compat | **0.98** |
-| `risk_budget` | llama-3.1-8b-instant | Groq OpenAI-compat | **0.99** |
-| `macro_stress` | llama-3.1-8b-instant | Groq OpenAI-compat | **0.99** |
+| `nifty_screen` | llama-3.1-8b-instant | Groq OpenAI-compat | **1.00** |
+| `sector_rotation` | llama-3.1-8b-instant | Groq OpenAI-compat | **1.00** |
+| `portfolio_risk` | llama-3.1-8b-instant | Groq OpenAI-compat | **0.98** |
+| `rbi_stress` | llama-3.1-8b-instant | Groq OpenAI-compat | **0.99** |
 
 Scores from a local run (`ENV_URL=http://127.0.0.1:8000`) on 2026-04-11. All steps used the live LLM (no fallback triggered). The inference script includes domain-aware fallback for graceful API failure handling (e.g. rate limits), which is part of the submission design.
 
@@ -159,8 +170,8 @@ from client import StockInvestmentEnv, InvestmentAction
 
 async def main():
     async with StockInvestmentEnv(base_url="http://localhost:8000") as env:
-        r = await env.reset("basic_screen")
-        r = await env.step(InvestmentAction(instrument_id="s1", decision="underweight"))
+        r = await env.reset("nifty_screen")
+        r = await env.step(InvestmentAction(instrument_id="n1", decision="overweight"))
         print(r.reward, r.done)
 
 asyncio.run(main())
@@ -176,19 +187,22 @@ asyncio.run(main())
 ├── client.py             # Async HTTP client
 ├── inference.py          # LLM baseline (hackathon submission script)
 └── server/
-    ├── app.py            # FastAPI app
+    ├── app.py            # FastAPI app + Gradio mount
     ├── environment.py    # reset / step / state
     ├── graders.py        # Task graders + ordering / thesis / near-miss logic
-    └── tasks.py          # Scenarios and ground truth
+    ├── tasks.py          # Indian market scenarios and ground truth
+    └── ui.py             # Gradio Blocks interactive UI
 ```
 
 ## Design choices
 
+- **Real Indian companies** with realistic market narratives provide practical training for portfolio research on NSE/BSE equities.
 - **Fixed hand-written scenarios** keep graders deterministic and submissions auditable — a good fit for benchmarking LLM agents.
 - **Near-miss partial credit** (adjacent decision/risk tier scores) provides a denser reward signal than binary match, making the environment more informative for RL fine-tuning.
 - **Coherence bonus on theses** rewards substantive reasoning (length + sentence count + keyword depth) beyond the minimum keyword match.
 - **Anti-stuffing detection** penalises keyword lists masquerading as theses (ratio checks, repetition checks, length floor).
 - **Ordering bonus with decay** captures the real-world intuition that portfolio managers should address tail-risk positions before routine names.
+- **Interactive Gradio UI** lets users experience the environment directly — both via an AI agent demo and manual play mode.
 
 ## License
 

@@ -18,10 +18,10 @@ class StockInvestmentEnvironment:
     Stateful equity / multi-asset research environment implementing the OpenEnv interface.
 
     Supports four tasks with increasing complexity:
-        basic_screen     (easy)    – 5 names, benchmark-relative stance only
-        sector_rotation  (medium)  – 10 names + risk budget + cycle thesis
-        risk_budget      (hard)    – 15 names + risk tier + three liquidity/regulatory theses
-        macro_stress     (expert)  – 12 names + hedge flag + cross-asset liquidity thesis
+        nifty_screen     (easy)    – 5 Nifty 50 large-caps, benchmark-relative stance only
+        sector_rotation  (medium)  – 10 cross-sector names + risk tier + metals thesis
+        portfolio_risk   (hard)    – 15 multi-cap names + risk tier + three event-driven theses
+        rbi_stress       (expert)  – 12 names + hedge flag + green-energy NBFC thesis
     """
 
     def __init__(self) -> None:
@@ -34,12 +34,12 @@ class StockInvestmentEnvironment:
 
     # ─── Public API ─────────────────────────────────────────────────────────
 
-    def reset(self, task_name: str = "basic_screen", seed: int | None = None) -> dict[str, Any]:
+    def reset(self, task_name: str = "nifty_screen", seed: int | None = None) -> dict[str, Any]:
         """
         Reset the environment for a new episode.
 
         Args:
-            task_name: One of 'basic_screen', 'sector_rotation', 'risk_budget', 'macro_stress'.
+            task_name: One of 'nifty_screen', 'sector_rotation', 'portfolio_risk', 'rbi_stress'.
             seed:      Optional seed (unused; provided for API compatibility).
 
         Returns:

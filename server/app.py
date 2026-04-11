@@ -20,24 +20,27 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+import gradio as gr
+
 from .environment import StockInvestmentEnvironment
 from .tasks import ALL_TASKS
+from .ui import demo as gradio_demo
 
 _env: StockInvestmentEnvironment = StockInvestmentEnvironment()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _env.reset("basic_screen")
+    _env.reset("nifty_screen")
     yield
 
 
 app = FastAPI(
     title="Stock Investment Agent Environment",
     description=(
-        "A real-world portfolio research RL environment built for the "
-        "Scaler × Meta PyTorch OpenEnv Hackathon. Four tasks: basic_screen (easy), "
-        "sector_rotation (medium), risk_budget (hard), macro_stress (expert)."
+        "Indian stock market portfolio research RL environment for the "
+        "Scaler × Meta PyTorch OpenEnv Hackathon. Four tasks: nifty_screen (easy), "
+        "sector_rotation (medium), portfolio_risk (hard), rbi_stress (expert)."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -47,7 +50,7 @@ app = FastAPI(
 # ─── Request / Response models ────────────────────────────────────────────────
 
 class ResetRequest(BaseModel):
-    task_name: str = Field(default="basic_screen", description="Task to initialise")
+    task_name: str = Field(default="nifty_screen", description="Task to initialise")
     seed: int | None = Field(default=None, description="Optional random seed (unused)")
 
 
@@ -63,29 +66,12 @@ class InvestmentActionRequest(BaseModel):
     )
     hedge_recommended: bool | None = Field(
         default=None,
-        description="True if hedging/overlay warranted (macro_stress)",
+        description="True if hedging/overlay warranted (rbi_stress)",
     )
     thesis: str | None = Field(default=None, description="Rationale when required by task")
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
-
-@app.get("/")
-async def root() -> dict[str, Any]:
-    return {
-        "name": "stock-investment-agent",
-        "version": "1.0.0",
-        "description": "Stock Investment Agent RL Environment – Scaler × Meta PyTorch OpenEnv Hackathon",
-        "endpoints": {
-            "POST /reset": "Start a new episode",
-            "POST /step": "Execute one instrument decision",
-            "GET /state": "Current episode metadata",
-            "GET /health": "Health check",
-            "GET /info": "Environment metadata",
-        },
-        "tasks": list(ALL_TASKS.keys()),
-    }
-
 
 @app.get("/health")
 async def health() -> dict[str, str]:
@@ -136,6 +122,10 @@ async def step(action: InvestmentActionRequest) -> dict[str, Any]:
 async def state() -> dict[str, Any]:
     return _env.state()
 
+
+# ─── Mount Gradio UI at root (after all API routes) ─────────────────────────
+
+app = gr.mount_gradio_app(app, gradio_demo, path="/")
 
 # ─── Entry point ────────────────────────────────────────────────────────────
 

@@ -8,9 +8,9 @@ Usage
 
     async def main():
         async with StockInvestmentEnv(base_url="http://localhost:8000") as env:
-            result = await env.reset("basic_screen")
+            result = await env.reset("nifty_screen")
             result = await env.step(
-                InvestmentAction(instrument_id="s1", decision="underweight")
+                InvestmentAction(instrument_id="n1", decision="overweight")
             )
             print(result.reward, result.done)
 
@@ -80,7 +80,7 @@ class StockInvestmentEnv:
 
     async def reset(
         self,
-        task_name: str = "basic_screen",
+        task_name: str = "nifty_screen",
         seed: int | None = None,
     ) -> ResetResult:
         """Initialise a new episode and return the first observation."""

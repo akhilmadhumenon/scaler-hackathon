@@ -5,11 +5,11 @@ runtime: fastapi
 app: server.app:app
 port: 8000
 tasks:
-  - name: basic_screen
+  - name: nifty_screen
     difficulty: easy
   - name: sector_rotation
     difficulty: medium
-  - name: risk_budget
+  - name: portfolio_risk
     difficulty: hard
-  - name: macro_stress
+  - name: rbi_stress
     difficulty: expert

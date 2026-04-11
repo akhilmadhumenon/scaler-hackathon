@@ -101,9 +101,15 @@ def _detect_keyword_stuffing(text: str, keywords: list[str]) -> bool:
         "most", "other", "some", "such", "no", "only", "own", "same", "than",
         "too", "very", "just", "because", "if", "when", "while", "that",
         "this", "these", "those", "it", "its", "we", "they", "their",
+        "rs", "cr", "crore", "lakh", "per", "also", "which", "about",
+        "india", "india's", "indian", "market", "sector", "company",
+        "stock", "price", "growth", "risk", "high", "low", "new",
+        "rate", "cost", "energy", "however", "given", "due", "likely",
+        "overall", "based", "current", "potential", "significant",
     }
     word_counts = Counter(w for w in words if w not in _STOP_WORDS)
-    if any(c >= 4 for c in word_counts.values()):
+    repeat_threshold = 4 if len(words) < 40 else 5 if len(words) < 60 else 6
+    if any(c >= repeat_threshold for c in word_counts.values()):
         return True
 
     return False
@@ -178,9 +184,9 @@ def _compute_ordering_bonus(
     return round(per_bonus * max(0.0, decay), 6)
 
 
-# ─── Task 1: basic_screen ─────────────────────────────────────────────────────
+# ─── Task 1: nifty_screen ─────────────────────────────────────────────────────
 
-def grade_basic_screen(
+def grade_nifty_screen(
     task_cfg: dict[str, Any],
     action: dict[str, Any],
     decided: dict[str, Any],
@@ -237,9 +243,9 @@ def grade_sector_rotation(
     return round(reward, 6), " | ".join(parts)
 
 
-# ─── Task 3: risk_budget ─────────────────────────────────────────────────────
+# ─── Task 3: portfolio_risk ───────────────────────────────────────────────────
 
-def grade_risk_budget(
+def grade_portfolio_risk(
     task_cfg: dict[str, Any],
     action: dict[str, Any],
     decided: dict[str, Any],
@@ -279,9 +285,9 @@ def grade_risk_budget(
     return round(reward, 6), " | ".join(parts)
 
 
-# ─── Task 4: macro_stress ────────────────────────────────────────────────────
+# ─── Task 4: rbi_stress ──────────────────────────────────────────────────────
 
-def grade_macro_stress(
+def grade_rbi_stress(
     task_cfg: dict[str, Any],
     action: dict[str, Any],
     decided: dict[str, Any],
@@ -339,10 +345,10 @@ def grade_macro_stress(
 # ─── Dispatcher ───────────────────────────────────────────────────────────────
 
 GRADERS = {
-    "basic_screen": grade_basic_screen,
+    "nifty_screen": grade_nifty_screen,
     "sector_rotation": grade_sector_rotation,
-    "risk_budget": grade_risk_budget,
-    "macro_stress": grade_macro_stress,
+    "portfolio_risk": grade_portfolio_risk,
+    "rbi_stress": grade_rbi_stress,
 }
 
 
