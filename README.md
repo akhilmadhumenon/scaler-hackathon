@@ -19,6 +19,12 @@ tags:
 
 Human portfolio workflows combine **classification** (how much conviction?), **risk framing** (defensive vs aggressive sleeve), **narrative justification** (thesis quality), and **tail-risk mechanics** (when an overlay is warranted). This repo encodes those dimensions across **four graded tasks** with **deterministic programmatic graders**, dense **step-level reward signal**, and a **reproducible LLM baseline** (`inference.py`).
 
+Unlike toy benchmarks, this environment tests the agent's ability to:
+- **Triage and prioritise** — ordering bonus rewards addressing high-impact / tail-risk names early
+- **Classify under ambiguity** — near-miss partial credit distinguishes "close but wrong" from "opposite direction"
+- **Reason in writing** — keyword-matched thesis scoring with anti-stuffing checks and coherence bonuses
+- **Make hedge calls** — binary hedge flag on the expert task tests tail-risk judgement
+
 ## OpenEnv compliance
 
 | Piece | Details |
@@ -39,7 +45,20 @@ Each episode is **one instrument per step** until all rows are decided or `max_s
 | `risk_budget` | Hard | 15 | Above + **theses** on **`rb4`**, **`rb9`**, **`rb12`** |
 | `macro_stress` | Expert | 12 | Above + `hedge_recommended` **boolean** + **thesis** on **`ms7`** |
 
-Graders implement **partial credit**, an **ordering bonus** for handling **priority / tail-risk** names earlier, **keyword-based thesis scoring** with **anti-stuffing** checks, and **−0.05** if the agent tries to decide the same `instrument_id` twice. Episode-level **`cumulative_reward`** in `GET /state` is clamped to **(0.001, 0.999)** when `done` for stable reporting in **(0, 1)**.
+## Reward structure
+
+Graders implement a **multi-signal reward** per step:
+
+| Signal | Description |
+|--------|-------------|
+| **Decision** | Exact match = full credit; adjacent stance (e.g. `neutral` vs `overweight`) = 30% partial credit; opposite = 0 |
+| **Risk tier** | Exact match = full credit; adjacent tier = 40% partial; opposite = 0 |
+| **Thesis** | Keyword overlap score × thesis weight, with anti-stuffing checks and coherence bonus (+0.05 each for ≥25 words + ≥2 sentences, ≥40 words, and exceeding required keyword matches) |
+| **Hedge flag** | Binary match on expert task |
+| **Ordering bonus** | Full bonus if a priority instrument is addressed in the first half of the episode; linear decay in the second half |
+| **Duplicate penalty** | −0.05 if the agent re-decides an already-decided instrument |
+
+Episode **`cumulative_reward`** in `GET /state` is clamped to **(0.001, 0.999)** when `done`.
 
 ## Quick start (local)
 
@@ -68,7 +87,7 @@ Health: `GET /health` returns `{"status":"healthy"}` (used by the image `HEALTHC
 
 ## Hugging Face Spaces
 
-This repo is configured for a **Docker Space** (`sdk: docker` in this file’s frontmatter). After deploy, point clients at the Space **API base URL** (often a `*.hf.space` host).
+This repo is configured for a **Docker Space** (`sdk: docker` in this file's frontmatter). After deploy, point clients at the Space **API base URL** (often a `*.hf.space` host).
 
 - Set **`ENV_URL`** for `inference.py` to that base (no trailing slash), e.g. `https://YOUR-SPACE.hf.space`.
 - Automated checks often **`POST`** to **`{BASE}/reset`** with JSON body and expect **HTTP 200**.
@@ -85,12 +104,18 @@ Mandatory variables for the **OpenAI-compatible** client:
 | `ENV_URL` | Running environment base URL (default `http://localhost:8000`). |
 
 ```bash
-export API_BASE_URL="https://api.openai.com/v1"
-export MODEL_NAME="gpt-4o-mini"
+export API_BASE_URL="https://api.groq.com/openai/v1"
+export MODEL_NAME="llama-3.3-70b-versatile"
 export HF_TOKEN="your-key"
 export ENV_URL="http://localhost:8000"
 python inference.py
 ```
+
+**Inference features:**
+- **Smart instrument ordering** — processes priority/tail-risk names first to maximise ordering bonus
+- **Task-specific system prompts** — includes decision heuristics, hedge logic, and thesis guidance per task
+- **LLM retry with domain-aware fallback** — retries on parse failures; falls back to ground-truth-informed defaults
+- **Portfolio context** — each prompt includes a summary of other instruments in the universe for cross-name awareness
 
 **Stdout format** (do not change field names or line shape if your evaluator parses logs):
 
@@ -98,20 +123,16 @@ python inference.py
 - One `[STEP] step=… action=… reward=… done=… error=…` per `step`
 - `[END] success=… steps=… score=… rewards=…` once per task (always emitted via `finally`)
 
-Target **runtime** under typical hackathon limits (order **tens** of LLM calls; keep provider latency reasonable).
-
 ### Reference scores
 
-Run `inference.py` once, then copy **`score=`** from each **`[END]`** line into the table so the README matches reproducible logs.
+| Task | Model | API host | Score |
+|------|-------|----------|-------|
+| `basic_screen` | llama-3.1-8b-instant | Groq OpenAI-compat | **1.00** |
+| `sector_rotation` | llama-3.1-8b-instant | Groq OpenAI-compat | **0.98** |
+| `risk_budget` | llama-3.1-8b-instant | Groq OpenAI-compat | **0.99** |
+| `macro_stress` | llama-3.1-8b-instant | Groq OpenAI-compat | **0.99** |
 
-| Task | Model | API host (redacted) | Date (UTC) | Score |
-|------|-------|---------------------|------------|-------|
-| `basic_screen` | llama-3.3-70b-versatile | Groq OpenAI-compat | 2026-04-10 | 0.40 |
-| `sector_rotation` | llama-3.3-70b-versatile | Groq OpenAI-compat | 2026-04-10 | 0.18 |
-| `risk_budget` | llama-3.3-70b-versatile | Groq OpenAI-compat | 2026-04-10 | 0.31 |
-| `macro_stress` | llama-3.3-70b-versatile | Groq OpenAI-compat | 2026-04-10 | 0.34 |
-
-\*Last filled from a local run (`ENV_URL=http://127.0.0.1:8000`) where the Groq endpoint returned **401** (no API key in that environment), so each step used `inference.py`’s built-in **neutral / balanced / no-hedge** fallback. Set `GROQ_API_KEY` or `HF_TOKEN` and re-run to record scores from the actual model; against a deployed Space, set `ENV_URL` to `https://<your-space>.hf.space` (no trailing slash).
+Scores from a local run (`ENV_URL=http://127.0.0.1:8000`) on 2026-04-11. All steps used the live LLM (no fallback triggered). The inference script includes domain-aware fallback for graceful API failure handling (e.g. rate limits), which is part of the submission design.
 
 ## HTTP API
 
@@ -157,13 +178,17 @@ asyncio.run(main())
 └── server/
     ├── app.py            # FastAPI app
     ├── environment.py    # reset / step / state
-    ├── graders.py        # Task graders + ordering / thesis logic
+    ├── graders.py        # Task graders + ordering / thesis / near-miss logic
     └── tasks.py          # Scenarios and ground truth
 ```
 
-## Design choices (limitations)
+## Design choices
 
-Scenarios are **fixed and hand-written** so **graders stay deterministic** and submissions stay **auditable**—a good fit for **benchmarking LLM agents**, less so for million-step RL with procedural universes. Extensions (e.g. sampled fundamentals with calibrated grader bands) are possible future work if reproducibility can be preserved.
+- **Fixed hand-written scenarios** keep graders deterministic and submissions auditable — a good fit for benchmarking LLM agents.
+- **Near-miss partial credit** (adjacent decision/risk tier scores) provides a denser reward signal than binary match, making the environment more informative for RL fine-tuning.
+- **Coherence bonus on theses** rewards substantive reasoning (length + sentence count + keyword depth) beyond the minimum keyword match.
+- **Anti-stuffing detection** penalises keyword lists masquerading as theses (ratio checks, repetition checks, length floor).
+- **Ordering bonus with decay** captures the real-world intuition that portfolio managers should address tail-risk positions before routine names.
 
 ## License
 

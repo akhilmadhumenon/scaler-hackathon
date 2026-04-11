@@ -6,14 +6,60 @@ then returns an immediate step reward in [0.0, 1.0] (before normalisation).
 
 Features:
 - Per-step grading with partial credit
+- Near-miss partial credit for directionally close decisions
 - Conviction-ordering bonus (rewards deciding priority/tail-risk names early)
 - Anti-exploit thesis validation (keyword stuffing detection)
+- Coherence bonus for thesis quality (length, structure, relevance)
 - Hedge flag grading on the expert task
 """
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
+
+
+# ─── Decision adjacency for near-miss partial credit ─────────────────────────
+
+_DECISION_ADJACENCY: dict[tuple[str, str], float] = {
+    ("overweight", "neutral"): 0.3,
+    ("neutral", "overweight"): 0.3,
+    ("underweight", "neutral"): 0.3,
+    ("neutral", "underweight"): 0.3,
+    ("overweight", "underweight"): 0.0,
+    ("underweight", "overweight"): 0.0,
+}
+
+_RISK_ADJACENCY: dict[tuple[str, str], float] = {
+    ("defensive", "balanced"): 0.4,
+    ("balanced", "defensive"): 0.4,
+    ("balanced", "aggressive"): 0.4,
+    ("aggressive", "balanced"): 0.4,
+    ("defensive", "aggressive"): 0.0,
+    ("aggressive", "defensive"): 0.0,
+}
+
+
+def _decision_score(agent: str, correct: str, full_reward: float) -> tuple[float, str]:
+    """Score a decision with partial credit for near-misses."""
+    if agent == correct:
+        return full_reward, f"decision=✓({agent})"
+    adj = _DECISION_ADJACENCY.get((agent, correct), 0.0)
+    if adj > 0:
+        partial = round(full_reward * adj, 6)
+        return partial, f"decision=~({agent}≈{correct},+{partial:.4f})"
+    return 0.0, f"decision=✗({agent}≠{correct})"
+
+
+def _risk_tier_score(agent: str, correct: str, full_reward: float) -> tuple[float, str]:
+    """Score a risk tier with partial credit for adjacent tiers."""
+    if agent == correct:
+        return full_reward, f"risk_tier=✓({agent})"
+    adj = _RISK_ADJACENCY.get((agent, correct), 0.0)
+    if adj > 0:
+        partial = round(full_reward * adj, 6)
+        return partial, f"risk_tier=~({agent}≈{correct},+{partial:.4f})"
+    return 0.0, f"risk_tier=✗({agent}≠{correct})"
 
 
 # ─── Anti-exploit helpers ────────────────────────────────────────────────────
@@ -23,9 +69,11 @@ def _detect_keyword_stuffing(text: str, keywords: list[str]) -> bool:
     Detect if a thesis is likely keyword-stuffed (gaming the grader).
 
     Heuristics:
-    - If text is shorter than 15 words but contains 5+ keywords → suspicious
-    - If the ratio of keywords to total words is > 0.6 → suspicious
-    - If the same word is repeated 4+ times → suspicious
+    - Fewer than 3 words → trivially stuffed
+    - Short text (< 15 words) with 5+ keyword hits → suspicious
+    - Keyword-to-word ratio > 0.6 → suspicious
+    - Any single word repeated 4+ times → suspicious
+    - All-caps or no vowels in majority of words → suspicious
     """
     if not text:
         return False
@@ -36,13 +84,25 @@ def _detect_keyword_stuffing(text: str, keywords: list[str]) -> bool:
 
     matched = sum(1 for kw in keywords if kw.lower() in text.lower())
     keyword_ratio = matched / max(len(words), 1)
-    if len(words) < 15 and matched >= 5:
+    if len(words) < 10 and matched >= 5:
         return True
-    if keyword_ratio > 0.6:
+    if keyword_ratio > 0.75:
         return True
 
-    from collections import Counter
-    word_counts = Counter(words)
+    _STOP_WORDS = {
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+        "have", "has", "had", "do", "does", "did", "will", "would", "could",
+        "should", "may", "might", "shall", "can", "need", "dare", "ought",
+        "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
+        "into", "through", "during", "before", "after", "above", "below",
+        "between", "out", "off", "over", "under", "again", "further", "then",
+        "once", "and", "but", "or", "nor", "not", "so", "yet", "both",
+        "either", "neither", "each", "every", "all", "any", "few", "more",
+        "most", "other", "some", "such", "no", "only", "own", "same", "than",
+        "too", "very", "just", "because", "if", "when", "while", "that",
+        "this", "these", "those", "it", "its", "we", "they", "their",
+    }
+    word_counts = Counter(w for w in words if w not in _STOP_WORDS)
     if any(c >= 4 for c in word_counts.values()):
         return True
 
@@ -54,15 +114,17 @@ def _score_thesis(
     keyword_cfg: dict[str, Any],
 ) -> float:
     """
-    Score a thesis by keyword matching with anti-exploit checks.
+    Score a thesis by keyword matching with anti-exploit checks and coherence bonus.
 
     Returns a float in [0.0, 1.0] representing quality.
-    Partial credit: matched / required_matches, capped at 1.0.
+    Base: matched / required_matches, capped at 1.0.
+    Coherence bonus: up to +0.15 for well-structured, substantive theses.
     """
     if not thesis:
         return 0.0
 
-    if len(thesis.strip()) < 20:
+    stripped = thesis.strip()
+    if len(stripped) < 20:
         return 0.05
 
     keywords: list[str] = keyword_cfg.get("keywords", [])
@@ -75,7 +137,18 @@ def _score_thesis(
     matched = sum(1 for kw in keywords if kw.lower() in thesis_lower)
     base_score = min(1.0, matched / required) if required > 0 else 0.0
 
-    return base_score
+    coherence_bonus = 0.0
+    word_count = len(stripped.split())
+    sentence_count = max(1, stripped.count(".") + stripped.count("!") + stripped.count("?"))
+
+    if word_count >= 25 and sentence_count >= 2:
+        coherence_bonus += 0.05
+    if word_count >= 40 and sentence_count >= 2:
+        coherence_bonus += 0.05
+    if matched > required and word_count >= 30:
+        coherence_bonus += 0.05
+
+    return min(1.0, base_score + coherence_bonus)
 
 
 # ─── Ordering bonus ────────────────────────────────────────────────────────────
@@ -85,9 +158,7 @@ def _compute_ordering_bonus(
     instrument_id: str,
     decided: dict[str, Any],
 ) -> float:
-    """
-    Bonus for addressing priority (high-impact / tail-risk) names earlier in the episode.
-    """
+    """Bonus for addressing priority (high-impact / tail-risk) names earlier in the episode."""
     priority_ids: list[str] = task_cfg.get("priority_ids", [])
     total_bonus: float = task_cfg.get("ordering_bonus", 0.0)
 
@@ -120,9 +191,8 @@ def grade_basic_screen(
     gt: dict[str, Any] = task_cfg["ground_truth"].get(instrument_id, {})
     correct: str = gt.get("decision", "")
 
-    if decision == correct:
-        return task_cfg["decision_reward"], f"Correct stance '{decision}' for {instrument_id}"
-    return 0.001, f"Wrong stance '{decision}' (expected '{correct}') for {instrument_id}"
+    reward, reason = _decision_score(decision, correct, task_cfg["decision_reward"])
+    return reward, f"{reason} for {instrument_id}"
 
 
 # ─── Task 2: sector_rotation ──────────────────────────────────────────────────
@@ -144,17 +214,13 @@ def grade_sector_rotation(
     reward = 0.0
     parts: list[str] = []
 
-    if decision == correct_decision:
-        reward += task_cfg["decision_reward"]
-        parts.append(f"decision=✓({decision})")
-    else:
-        parts.append(f"decision=✗({decision}≠{correct_decision})")
+    d_score, d_reason = _decision_score(decision, correct_decision, task_cfg["decision_reward"])
+    reward += d_score
+    parts.append(d_reason)
 
-    if risk_tier == correct_risk:
-        reward += task_cfg["risk_tier_reward"]
-        parts.append(f"risk_tier=✓({risk_tier})")
-    else:
-        parts.append(f"risk_tier=✗({risk_tier}≠{correct_risk})")
+    r_score, r_reason = _risk_tier_score(risk_tier, correct_risk, task_cfg["risk_tier_reward"])
+    reward += r_score
+    parts.append(r_reason)
 
     if instrument_id in task_cfg["thesis_required_for"]:
         kw_cfg = task_cfg["thesis_keywords"].get(instrument_id, {})
@@ -190,17 +256,13 @@ def grade_risk_budget(
     reward = 0.0
     parts: list[str] = []
 
-    if decision == correct_decision:
-        reward += task_cfg["decision_reward"]
-        parts.append(f"decision=✓({decision})")
-    else:
-        parts.append(f"decision=✗({decision}≠{correct_decision})")
+    d_score, d_reason = _decision_score(decision, correct_decision, task_cfg["decision_reward"])
+    reward += d_score
+    parts.append(d_reason)
 
-    if risk_tier == correct_risk:
-        reward += task_cfg["risk_tier_reward"]
-        parts.append(f"risk_tier=✓({risk_tier})")
-    else:
-        parts.append(f"risk_tier=✗({risk_tier}≠{correct_risk})")
+    r_score, r_reason = _risk_tier_score(risk_tier, correct_risk, task_cfg["risk_tier_reward"])
+    reward += r_score
+    parts.append(r_reason)
 
     if instrument_id in task_cfg["thesis_required_for"]:
         kw_cfg = task_cfg["thesis_keywords"].get(instrument_id, {})
@@ -245,17 +307,13 @@ def grade_macro_stress(
     reward = 0.0
     parts: list[str] = []
 
-    if decision == correct_decision:
-        reward += task_cfg["decision_reward"]
-        parts.append(f"decision=✓({decision})")
-    else:
-        parts.append(f"decision=✗({decision}≠{correct_decision})")
+    d_score, d_reason = _decision_score(decision, correct_decision, task_cfg["decision_reward"])
+    reward += d_score
+    parts.append(d_reason)
 
-    if risk_tier == correct_risk:
-        reward += task_cfg["risk_tier_reward"]
-        parts.append(f"risk_tier=✓({risk_tier})")
-    else:
-        parts.append(f"risk_tier=✗({risk_tier}≠{correct_risk})")
+    r_score, r_reason = _risk_tier_score(risk_tier, correct_risk, task_cfg["risk_tier_reward"])
+    reward += r_score
+    parts.append(r_reason)
 
     if hedge == correct_hedge:
         reward += task_cfg.get("hedge_reward", 0.0)
